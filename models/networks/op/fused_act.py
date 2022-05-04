@@ -4,17 +4,17 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Function
-from torch.utils.cpp_extension import load
+# from torch.utils.cpp_extension import load
 
 
-module_path = os.path.dirname(__file__)
-fused = load(
-    "fused",
-    sources=[
-        os.path.join(module_path, "fused_bias_act.cpp"),
-        os.path.join(module_path, "fused_bias_act_kernel.cu"),
-    ],
-)
+# module_path = os.path.dirname(__file__)
+# fused = load(
+#     "fused",
+#     sources=[
+#         os.path.join(module_path, "fused_bias_act.cpp"),
+#         os.path.join(module_path, "fused_bias_act_kernel.cu"),
+#     ],
+# )
 
 
 class FusedLeakyReLUFunctionBackward(Function):
@@ -102,18 +102,15 @@ class FusedLeakyReLU(nn.Module):
 
 
 def fused_leaky_relu(input, bias=None, negative_slope=0.2, scale=2 ** 0.5):
-    if input.device.type == "cpu":
-        if bias is not None:
-            rest_dim = [1] * (input.ndim - bias.ndim - 1)
-            return (
-                F.leaky_relu(
-                    input + bias.view(1, bias.shape[0], *rest_dim), negative_slope=0.2
-                )
-                * scale
+    if bias is not None:
+        rest_dim = [1] * (input.ndim - bias.ndim - 1)
+        return (
+            F.leaky_relu(
+                input + bias.view(1, bias.shape[0], *rest_dim), negative_slope=0.2
             )
-
-        else:
-            return F.leaky_relu(input, negative_slope=0.2) * scale
+            * scale
+        )
 
     else:
-        return FusedLeakyReLUFunction.apply(input, bias, negative_slope, scale)
+        return F.leaky_relu(input, negative_slope=0.2) * scale
+
